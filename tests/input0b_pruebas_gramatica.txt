@@ -1,0 +1,70 @@
+
+
+<!--
+	INPUT DE PRUEBAS PARA LA GRAMÁTICA
+	
+	Este input está pensado para probar el reconocimiento 
+	de la gramática y no funciona como código real.
+-->
+
+<!--
+	NOTA: no se pueden interpretar operadores unarios (+/-NUM) a causa de que generaria
+		  conflicto con el bucle. VEASE EJEMPLO AL FINAL.
+-->
+
+entero simple := 3 + 2;
+
+booleano completo := 5 > 3+1*2+1 & !False;
+
+# Esta prueba genera error como es esperado
+#real invalido := 5 < 1 < 1;
+
+#-5;
+
+estructura.subvar := !true | !5+2/2+1;
+
+asignacion := 0x9FA;
+
+
+FUNCION abc( ENTERO x, REAL y ) RETURN booleano
+{
+	BOOLEANO resultado := false;
+	SI x > y AND True ENTONCES
+		resultado := true;
+	SINO
+		2+2;
+	FINSI
+}
+
+STRUCT test { booleano a; real b; }
+
+
+MIENTRAS 2+2 AND punto1.radio>0
+	SI a & b < 3 ENTONCES
+		a := u.v/2.0;
+		Entero b := u.w - 1.0;
+		x := false;
+	SINO
+		x := true;
+	FINSI
+FINMIENTRAS # fin de bucle MIENTRAS
+
+Booleano k := abc( 1, 1.3 );
+
+
+
+
+<!-- EJEMPLO AMBIGÜEDAD
+
+  en el siguiente bloque la gramatica no sabria donde acaba la expresion condicional
+  y empieza el bloque de codigo de dentro del bucle.
+
+MIENTRAS 3 < 2
+	-5+2;
+FINMIENTRAS
+
+  La expresion condicional podria ser: (3<2) ó (3<2-5)
+
+-->
+
+

@@ -1,0 +1,70 @@
+
+
+<!--
+	INPUT DE PRUEBAS PARA EL LEXER
+-->
+
+
+
+# Comentario 	prueba: 1+1
+
+<!--
+	Prueba de comentario 	multilinea: 1+1
+	1+1;
+-->
+
+
+# TEST variable
+variable
+TestVar_2
+
+
+# TEST operadores y comparadores de valores
+:=
++ - * /
+== < > <= >=
+and aNd AND &
+or Or OR |
+not nOt NOT !
+
+
+# TEST declaradores
+entero enTeRo ENTERO
+real rEaL REAL
+booleano BooLeano BOOLEANO
+caracter caRacter CARACTER
+struct StrucT STRUCT
+
+
+# TEST literales
+true TrUe TRUE
+false fAlse FALSE
+1 213
+1. 2e-12 9e+21 2E3
+0x1A3F 0XA2
+'l''0''L'
+
+
+# TEST operadores de flujo
+; ( ) { }
+mientras Mientras MIENTRAS
+finmientras finMientras FINMIENTRAS
+si sI SI
+entonces enTonces ENTONCES
+sino sIno SINO
+finsi FiNsi FINSI
+funcion FuncIon FUNCION
+retorno RetorNo RETORNO
+
+
+
+
+
+
+<!--
+	TESTS PARA HACER CON EL ANALIZADOR SINTÁCTICO
+-->
+# TEST Ambos tipos de sentencias (evaluacion vs asignacion)
+# TEST Variable sin declarar
+# TEST Re-declaracion
+# TEST caracter como numero vs char

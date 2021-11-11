@@ -1,0 +1,329 @@
+/*
+	PARSER LENGUAJE BSL
+
+	Gramática y análisis semánticos.
+*/
+
+package pl.practica;
+
+import java_cup.runtime.*;
+import pl.practica.*;
+import java.io.IOException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.lang.Math;
+import java.util.*;
+
+
+parser code {:
+  enum OpType { 
+    ADD, SUB, MUL, DIV, EQ, NEQ, GT, GE, LT, LE, OR, AND, NOT 
+  }
+
+  protected Lexer lexer;
+  TypeList symbols = new TypeList();
+  boolean isPrintable = true;
+:}
+
+
+init with {:
+  ComplexSymbolFactory f = new ComplexSymbolFactory();
+  symbolFactory = f;
+  File file = new File("input.txt");
+  FileInputStream fis = null;
+  try {
+    fis = new FileInputStream(file);
+  } catch (IOException e) {
+    e.printStackTrace();
+  } 
+  lexer = new Lexer(f,fis);
+:};
+scan with {: return lexer.next_token(); :};
+
+
+/* - TERMINALES - */
+terminal            SEMI, ASSIGN, IZQPAREN, DERPAREN, IZQLLAVE, DERLLAVE, DOT, COMA;
+
+// OPERACIONES NUMERICAS
+terminal			PLUS, MINUS, DIV, MULT;
+
+// OPERACIONES BOOLEANAS
+terminal			NOT, OR, AND;
+terminal			EQUALTO, GREATER, GREATEREQ, LESSER, LESSEREQ;
+
+// OPERACIONES DE FLUJO
+terminal			IF, THEN, ELSE, ENDIF;
+terminal			WHILE, ENDWHILE;
+terminal			FUNC, RETORNO;
+
+// DECLARACIONES DE TIPO
+terminal			DCLENTERO, DCLREAL, DCLBOOL, DCLCHAR, DCLSTRUCT;
+
+// VARIABLES Y LITERALES
+terminal Integer	ENTERO;
+terminal Float		FP;
+terminal Boolean	BOOLEAN;
+terminal char		CHAR;
+terminal String     IDENT;
+
+
+/* - NO TERMINALES - */
+//	GLOBAL
+non terminal 			programa, blq_sentencias, sentencia, tipos, lambda;
+
+//	DECLARACIONES
+non terminal			sent_decl, decl_struct, def_funcion, lista_args;
+non terminal ArrayList<SubSt>	lista_decl;
+non terminal Type		tipo_var;
+non terminal SubSt		decl_var;
+
+//	USO
+non terminal Variable	expresion;
+non terminal			sent_uso, asignacion, uso_funcion, lista_expr;
+
+//	FLUJO
+non terminal			sent_flujo;
+non terminal			condicional, bucle;
+
+//	EXPRESIONES
+non terminal Variable	expr_log, expr_not, expr_comp, expr_arit, expr_a_h, expr_a_m, expr_a_l, expr_unit, value;
+non terminal OpType		op_log, op_comp, op_a_h, op_a_m;
+
+
+/* - GRAMATICA - */
+// ->	GLOBAL
+programa	::=	blq_sentencias							{:	System.out.println("-- CODE END --");	
+															if (isPrintable) symbols.printVarList();
+														:}
+			|	lambda									{:	System.out.println("-- CODE END --");	:}
+			;
+//NOTA: a falta de especifidad, en esta gramatica las funciones se pueden definir como sentencia en medio del código
+
+lambda		::= 	;
+
+blq_sentencias	::= blq_sentencias sentencia
+				|	sentencia
+				;
+
+sentencia	::=	sent_decl
+			|	sent_uso
+			|	sent_flujo							{: isPrintable = false; :}
+			|	def_funcion
+			|	decl_struct
+			|	IZQLLAVE blq_sentencias DERLLAVE
+			;
+
+def_funcion	::=	FUNC IDENT:i IZQPAREN lista_args DERPAREN RETORNO tipos IZQLLAVE blq_sentencias DERLLAVE	{:	if (!symbols.newFunc(i)) report_error("[ERROR]Declaracion de simbolo \"" + i + "\" duplicada\n", null);	:}
+			;
+
+decl_struct	::=	DCLSTRUCT IDENT:i IZQLLAVE lista_decl:l DERLLAVE	{:	if (!symbols.newStruct(i)) report_error("[ERROR] Declaracion de simbolo \"" + i + "\" duplicada\n", null);	:}
+			;
+
+lista_decl	::=	decl_var:e SEMI lista_decl:l		{:	l.add(e); RESULT = l;	:}
+			|	decl_var:e SEMI						{:	ArrayList<SubSt> list = new ArrayList<SubSt>();
+														list.add(e);
+														RESULT = list;
+													:}
+			;
+
+tipos		::= DCLENTERO
+			|	DCLREAL
+			|	DCLBOOL
+			|	DCLCHAR
+			|	DCLSTRUCT
+			;
+
+
+// ->	SENTENCIAS DE DECLARACION
+sent_decl	::= decl_var SEMI
+			;
+
+decl_var	::=	tipo_var:t IDENT:i ASSIGN expresion:e
+				{:	
+					SubSt x = new SubSt(i, e.type);
+					RESULT = x;
+					if ( ! TypeList.checkConversion(e.type, t) ) { if ( !symbols.newVar(i, t, 0) ) report_error("[ERROR]Declaracion de simbolo \"" + i + "\" duplicada\n", null);
+						report_error("[ERROR] Conversión de variables no soportada: " + e.type + " a " + t + "\n", null);
+					}
+					else if ( !symbols.newVar(i, t, e.value) ) report_error("[ERROR] Declaracion de simbolo \"" + i + "\" duplicada\n", null);
+					RESULT = x;
+				:}
+
+			|	tipo_var:t IDENT:i						{:	if ( !symbols.newVar(i, t, 0) ) report_error("[ERROR] Declaracion de simbolo \"" + i + "\" duplicada\n", null);	:}
+			|	IDENT IDENT								{:		:}
+			|	tipo_var:t IDENT:i ASSIGN uso_funcion:f	{:		:}
+			;
+
+tipo_var	::=	DCLENTERO							{:	RESULT = Type.INT;		:}
+			|	DCLREAL								{:	RESULT = Type.FLOAT;	:}
+			|	DCLBOOL								{:	RESULT = Type.BOOL;		:}
+			|	DCLCHAR								{:	RESULT = Type.CHAR;		:}
+			;
+
+lista_args	::= tipos IDENT COMA lista_args
+			|	tipos IDENT
+			;
+
+
+// ->	SENTENCIAS DE USO
+sent_uso	::= asignacion SEMI
+			|	expresion SEMI
+			|	uso_funcion SEMI
+			;
+
+asignacion	::=	IDENT:i ASSIGN expresion:e			{:	if ( ! symbols.varExists(i) ) report_error("[ERROR] Variable " + i + "no existe\n", null);
+														else {
+															if ( ! TypeList.checkConversion(e.type, symbols.getType(i)) ) {
+																report_error("[ERROR] Conversión de variables no soportada: " + e.type + " a " + symbols.getType(i) + "\n", null);
+															}
+															else symbols.updateVar(i, e.value);	
+														}
+													:}
+			|	IDENT:i DOT IDENT ASSIGN expresion	{:	if (!symbols.structExists(i)) report_error("[ERROR] La estructura : " + i + " no existe\n", null);	:}
+			|	IDENT ASSIGN uso_funcion
+			;
+
+lista_expr	::= lista_expr COMA expresion
+			|	expresion
+			;
+
+
+// ->	BLOQUES DE FLUJO
+sent_flujo	::= condicional
+			|	bucle
+			;
+
+condicional	::=	IF expresion THEN blq_sentencias ENDIF
+			|	IF expresion THEN blq_sentencias ELSE blq_sentencias ENDIF
+			;
+
+bucle		::= WHILE expresion blq_sentencias ENDWHILE
+			;
+
+
+
+// ->	EXPRESIONES
+expresion	::= expr_log:e							{:	RESULT = e;	:}
+			;
+
+// Operadores logicos, prioridad 7 (minima)
+expr_log	::= expr_log:e1 op_log:o expr_comp:e2	{:	Type nx = Type.ERROR;
+														if ( e1.type != e2.type ) { // Comprueba igualdad de tipo e intenta convertir si no
+															if (TypeList.checkConversion(e1.type, e2.type)) nx = e2.type;
+															else if (TypeList.checkConversion(e2.type, e1.type)) nx = e1.type;
+															else report_error("[ERROR] Operación no soportada: " + e1.type + " " + o + " " + e2.type + "\n", null);
+														}
+														else nx = e1.type;
+														if ( nx != Type.ERROR ) {
+															RESULT = Variable.operate(e1, e2, Type.BOOL, o);
+														}
+													:}
+			|	expr_comp:e							{:	RESULT = e;	:}
+			;
+
+// Operador de comparacion, prioridad 6
+expr_comp	::= expr_not:e1 op_comp:o expr_not:e2	{:	Type nx = Type.ERROR;
+														if ( e1.type != e2.type ) { // Comprueba igualdad de tipo e intenta convertir si no
+															if (TypeList.checkConversion(e1.type, e2.type)) nx = e2.type;
+															else if (TypeList.checkConversion(e2.type, e1.type)) nx = e1.type;
+															else report_error("[ERROR] Operación no soportada: " + e1.type + " " + o + " " + e2.type + "\n", null);
+														}
+														else nx = e1.type;
+														if ( nx != Type.ERROR ) {
+															RESULT = Variable.operate(e1, e2, Type.BOOL, o);
+														}
+													:}
+			|	expr_not:e					{:	RESULT = e;	:}
+			;
+
+// Operador de negacion, prioridad 5
+expr_not	::= NOT expr_arit:e				{:	if ( e.type != Type.BOOL ) { // Comprueba operacion compatible
+													report_error("[ERROR] Operación no soportada: NOT " + e.type + "\n", null);
+												}else {
+													if ( e.getAsBoolean() ) e.value = 0;
+													else e.value = 1;
+													RESULT = e;
+												}
+											:}
+			|	expr_arit:e					{:	RESULT = e;	:}
+			;
+
+// Expresiones aritméticas, prioridad 4-
+expr_arit	::=	expr_a_h:e					{:	RESULT = e;	:}
+			;
+
+// Sumas y restas, prioridad 4
+expr_a_h	::=	expr_a_h:e1 op_a_h:o expr_a_m:e2	{:	Type nx = Type.ERROR;
+														if ( e1.type != e2.type ) { // Comprueba igualdad de tipo e intenta convertir si no
+															if (TypeList.checkConversion(e1.type, e2.type)) nx = e2.type;
+															else if (TypeList.checkConversion(e2.type, e1.type)) nx = e1.type;
+															else report_error("[ERROR] Operación no soportada: " + e1.type + " " + o + " " + e2.type + "\n", null);
+														}
+														else nx = e1.type;
+														if ( nx != Type.ERROR ) {
+															RESULT = Variable.operate(e1, e2, nx, o);
+														}
+													:}
+			|	expr_a_m:e							{:	RESULT = e;	:}
+			;
+
+// Multiplicaciones y divisiones, prioridad 3
+expr_a_m	::=	expr_a_m:e1 op_a_m:o expr_unit:e2	{:	Type nx = Type.ERROR;
+														if ( e1.type != e2.type ) { // Comprueba igualdad de tipo e intenta convertir si no
+															if (TypeList.checkConversion(e1.type, e2.type)) nx = e2.type;
+															else if (TypeList.checkConversion(e2.type, e1.type)) nx = e1.type;
+															else report_error("[ERROR] Operación no soportada: " + e1.type + " " + o + " " + e2.type + "\n", null);
+														}
+														else nx = e1.type;
+														if ( nx != Type.ERROR ) {
+															RESULT = Variable.operate(e1, e2, nx, o);
+														}
+													:}
+			|	expr_unit:e							{:	RESULT = e;	:}
+			;
+
+/* NOTA: el siguiente operador de prioridad 2 no se aplica pues genera ambigüedad con los bucles
+ *		 A parte, no se pide explicitamente en la especificacion.
+ */
+// Uno o varios +/- antes del valor o parentesis, prioridad 2
+/*
+expr_a_l	::=	op_a_h expr_a_l
+			|	expr_unit
+			;
+*/
+
+// valor (ident o literal) o funcion, prioridad 1 (maxima)
+// Nota: El uso de funciones genera conflicto con los parentesis, por lo que las funciones solo se podran usar en asignaciones o sueltas
+expr_unit	::=	value:v							{:	RESULT = v;	:}
+			|	IZQPAREN expresion:e DERPAREN	{:	RESULT = e;	:}
+			;
+
+value		::=	ENTERO:v					{:	RESULT = new Variable(Type.INT, (int)v);		:}
+			|	FP:v						{:	RESULT = new Variable(Type.FLOAT, (float)v);	:}
+			|	BOOLEAN:v					{:	int val; if (v==true) val=1; else val = 0;
+												RESULT = new Variable(Type.BOOL, val);
+											:}
+			|	CHAR:v						{:	RESULT = new Variable(Type.CHAR, (byte)v);		:}
+			|	IDENT:i						{:	RESULT = new Variable(Type.ERROR, 0);
+												if (!symbols.varExists(i)) report_error("[ERROR] La estructura : " + i + " no existe\n", null);	
+												else RESULT = new Variable(symbols.getType(i), symbols.getValue(i));
+											:}
+			|	IDENT:i1 DOT IDENT:i2		{:	if (!symbols.structExists(i1)) report_error("[ERROR] La estructura : " + i1 + " no existe\n", null);
+												RESULT = new Variable(Type.ERROR, 0); :}
+			;
+
+uso_funcion	::= IDENT:f IZQPAREN lista_expr:l DERPAREN {: // Lista tipos l == lista tipos f :}
+			;
+
+op_log		::=	AND {: RESULT = OpType.AND; :} | OR {: RESULT = OpType.OR; :} ;
+
+op_comp		::=	EQUALTO {: RESULT = OpType.EQ; :} | LESSER {: RESULT = OpType.LT; :} | GREATER {: RESULT = OpType.GT; :} 
+			| 	LESSEREQ {: RESULT = OpType.LE; :} | GREATEREQ {: RESULT = OpType.GE; :} ;
+
+op_a_h		::=	PLUS {: RESULT = OpType.ADD; :} | MINUS {: RESULT = OpType.SUB; :} ;
+
+op_a_m		::= MULT {: RESULT = OpType.MUL; :} | DIV {: RESULT = OpType.DIV; :} ;
+
+
+
+

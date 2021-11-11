@@ -1,0 +1,52 @@
+
+
+<!--
+	INPUT DE PRUEBAS PARA EL LENGUAJE BSL
+	
+	INPUT 1: PRUEBAS EXPRESIONES Y SIMBOLOS
+-->
+
+# Prueba de declaracion y asignacion de variables
+Entero v_int;
+v_int := 3;
+Real v_real := 1.0;
+Caracter v_char := 'a';
+Booleano v_bool := true;
+
+
+# Prueba de asignacion de variables con expresiones complejas
+Entero op_int := 2 + 3 * 5;				# 17
+Real op_float := 2.0 * 2.0 + 2e1;		# 24
+Caracter op_char := ('d' - 'b') + 'a';	# 'c'
+
+
+# Prueba de conversiones directas y en expresiones
+Real conv1_ItoF := 5;
+Entero conv1_CtoI := 'a';
+
+Real conv2_ItoF_op := 2 * 5 + 3.5;
+Entero conv2_CtoI_op := 10 * 10 + 'a';
+
+
+# Prueba de operar con variables
+Entero uso_ident := conv2_CtoI_op + 1000;
+
+
+# Expresion completa
+Booleano cmplex_1 := (2 + 1) * 2 - 5 <= 0 * 5 + 1 & ( true | false );	# 1 <= 1 -> true
+
+
+# Prueba de generacion de simbolos con funciones y estructuras, y simbolos duplicados
+STRUCT test { booleano s1; real s2; }
+
+FUNCION prueba( ENTERO x1 ) RETURN entero {
+	2+2;
+}
+
+FUNCION prueba( ENTERO x2 ) RETURN entero {
+	2+2;
+}
+
+FUNCION test( ENTERO x3 ) RETURN entero {
+	2+2;
+}
